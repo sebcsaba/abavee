@@ -19,15 +19,19 @@ interface SQL {
 	/**
 	 * Returns the string representation of this SQL statement.
 	 * 
+	 * @param DbDialect $dialect If not given, the implementation can skip or use a default behaviour where
+	 * 	    dialect-dependent is needed.
 	 * @return string
 	 */
-	public function convertToString();
+	public function convertToString(DbDialect $dialect = null);
 	
 	/**
 	 * Returns the array of the parameters of this SQL statement.
 	 * 
+	 * @param DbDialect $dialect If not given, the implementation can skip or use a default behaviour where
+	 * 	    dialect-dependent is needed.
 	 * @return array (mixed)
 	 */
-	public function convertToParamsArray();
+	public function convertToParamsArray(DbDialect $dialect = null);
 	
 }
