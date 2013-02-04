@@ -26,14 +26,25 @@ class DI {
 	private $nonsingletonClassNames;
 	
 	/**
+	 * Special case handlers. Handler can be:
+	 *   - instance of DISpecialHandler
+	 *   - classname for az implementation class of DISpecialHandler
+	 *   - function that has the same signature as DISpecialHandler.create()
+	 * @var array (string classname => handler)
+	 */
+	private $specialHandlers;
+
+	/**
 	 * @param array $config Configuration parameters, containing the following items:
 	 *     'impl': array for $implementationClassNames
 	 *     'nonsingletons': array for $nonsingletonClassNames
+	 *     'specials': array for $specialHandlers
 	 */
 	public function __construct(array $config) {
 		$this->instances = array();
 		$this->implementationClassNames = I($config,'impl',array());
 		$this->nonsingletonClassNames = I($config,'nonsingletons',array());
+		$this->specialHandlers = I($config,'specials',array());
 	}
 	
 	/**
@@ -65,19 +76,25 @@ class DI {
 	 *         return that. In PHP most DI-related implementation objects can be singleton, therefore we list only the
 	 *         exceptions, the non-singletons. As above, when looking for the instance, search for the interface name
 	 *         first, and then the classname.
-	 *   5) If no instance found at the previous step, instantiate now. This is the only point when new object is
+	 *   5) If there's some special handling defined for the requested class or interface, use that for the next steps.
+	 *         This step will be skipped, if the $useSpecialHandlers parameter is false. When the additional instances
+	 *         gives some declarative override feature, this gives a programmatic way. As above, when looking for the
+	 *         instance, search for the interface name first, and then the classname. The object returned by the given
+	 *         handler will be used for the next steps.
+	 *   6) If no instance found at the previous step, instantiate now. This is the only point when new object is
 	 *         instantiated. If the implementation class needs parameters for the constructor, goes recursively to
-	 *         step 1, and transfer the additional instances.
-	 *   6) If the class name is not marked as non-singleton, store the created implementation instance. As above, when
+	 *         step 1. Transfers the additional instances, but not the value of the $useSpecialHandlers parameter.
+	 *   7) If the class name is not marked as non-singleton, store the created implementation instance. As above, when
 	 *         looking for the instance, search for the interface name first, and then the classname. When storing, use
 	 *         both the interface and the class name. This functionality is the same as setInstance().
-	 *   7) Return the instance.
+	 *   8) Return the instance.
 	 * 
 	 * @param string $interface Name of the interface that the returned object must be instance of.
 	 * @param array (classname=>instance) $additionalInstances Additional instances to prevent creating new ones.
+	 * @param boolean $useSpecialHandlers If true, use step 5.
 	 * @return object
 	 */
-	public function get($interface, array $additionalInstances = array()) {
+	public function get($interface, array $additionalInstances = array(), $useSpecialHandlers = true) {
 		// 1) If the required class is DI, return this object.
 		if ($interface=='DI') {
 			return $this;
@@ -96,17 +113,25 @@ class DI {
 			if (!is_null($instance)) { return $instance; }
 		}
 		
-		// 5) If no instance found at the previous step, instantiate now.
+		// 5) If there's some special handling defined for the requested class or interface, use that for the next steps.
+		if ($useSpecialHandlers) {
+			$handler = $this->lookup($interface, $class, $this->specialHandlers);
+			if (!is_null($handler)) {
+				$instance = $this->applyHandler($handler, $interface, $class);
+			}
+		}
+		
+		// 6) If no instance found at the previous step, instantiate now.
 		if (is_null($instance)) {
 			$instance = $this->instantiate($interface, $class, $additionalInstances);
 		}
 		
-		// 6) If the class name is not marked as non-singleton, store the created implementation instance.
+		// 7) If the class name is not marked as non-singleton, store the created implementation instance.
 		if (!$this->isNonsingleton($interface, $class)) {
 			$this->setInstance($instance, $interface);
 		}
 		
-		// 7) Return the instance.
+		// 8) Return the instance.
 		return $instance;
 	}
 	
@@ -141,7 +166,7 @@ class DI {
 	
 	/**
 	 * Looks for the given interface and class names in the given array as key. Follows the instruction from the get()
-	 * method steps 3, 4: the interface name is looked first, and, if not found, then the class name.
+	 * method steps 3, 4 and 5: the interface name is looked first, and, if not found, then the class name.
 	 * 
 	 * @param string $interface
 	 * @param string $class
@@ -168,6 +193,31 @@ class DI {
 	private function isNonsingleton($interface, $class) {
 		return in_array($class, $this->nonsingletonClassNames)
 			|| in_array($interface, $this->nonsingletonClassNames);
+	}
+	
+	/**
+	 * Applies the given handler to create a new instance the given class. Handler can be:
+	 *   - function that has the same signature as DISpecialHandler.create()
+	 *   - classname for az implementation class of DISpecialHandler. This DI will be used to instantiate.
+	 *   - instance of DISpecialHandler
+	 * 
+	 * @param mixed $handler
+	 * @param string $interfaceName
+	 * @param string $className
+	 * @return object
+	 * @throws Exception If the handler doesn't match the conditions above.
+	 */
+	private function applyHandler($handler, $interfaceName, $className) {
+		if (is_callable($handler)) {
+			return call_user_func($handler, $this, $interfaceName, $className);
+		}
+		if (is_string($handler)) {
+			$handler = $this->create($handler);
+		}
+		if ($handler instanceof DISpecialHandler) {
+			return $handler->create($this, $interfaceName, $className);
+		}
+		throw new Exception('unknown special handler '.get_class($handler).' for '.$interfaceName.'/'.$className);
 	}
 	
 }
