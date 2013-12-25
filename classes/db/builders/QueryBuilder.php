@@ -85,7 +85,7 @@ class QueryBuilder extends SQLBuilder {
 	 * @return QueryBuilder $this
 	 */
 	public function where($where, $data=null) {
-		return parent::where($where, $data);
+		return call_user_func_array('parent::where', func_get_args());
 	}
 	
 	/**
