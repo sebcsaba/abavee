@@ -28,7 +28,7 @@ class Timestamp {
 		$newDateString = sprintf('%d-%d-%d %d:%d:%d',$matches[1],$matches[2],$matches[3],$matches[5],$matches[6],$matches[8]);
 		$parsedTime = strtotime($newDateString);
 		if ($parsedTime===false) {
-			throw new Expression('unable to parse formatted date: '.$newDateString);
+			throw new Exception('unable to parse formatted date: '.$newDateString.' (orig: '.$dateString.')');
 		}
 		return new Timestamp($parsedTime);
 	}
