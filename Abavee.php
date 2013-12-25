@@ -24,21 +24,41 @@ class Abavee {
 	}
 	
 	public function run() {
-		require_once('functions.php');
-		$this->prepareAutoloader();
-		$config = $this->loadConfig();
-		$di = new DI($config->get('di'));
-		$di->setInstance($config);
+		$di = $this->prepareEnvironment(false);
 		$handler = $di->get('RequestHandler');
 		$handler->run();
 	}
 	
-	private function prepareAutoloader() {
+	public function test() {
+		$di = $this->prepareEnvironment(true);
+		$autoloader = $di->get('Autoloader');
+		$autoloader->addDirectory($this->baseDir.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'tests');
+	}
+	
+	/**
+	 * @return DI
+	 */
+	private function prepareEnvironment($testEnvironment) {
+		require_once('functions.php');
+		$autoloader = $this->prepareAutoloader($testEnvironment);
+		$config = $this->loadConfig();
+		$di = new DI($config->get('di'));
+		$di->setInstance($config);
+		$di->setInstance($autoloader);
+		return $di;
+	}
+	
+	/**
+	 * @param boolean $testEnvironment
+	 * @return Autoloader
+	 */
+	private function prepareAutoloader($testEnvironment) {
 		require_once('classes/core/Autoloader.php');
-		$autoloader = new Autoloader($this->tempDir.DIRECTORY_SEPARATOR.'autoload.cache.dat');
+		$autoloader = new Autoloader($this->tempDir.DIRECTORY_SEPARATOR.'autoload.cache.dat', !$testEnvironment);
 		spl_autoload_register(array($autoloader,'load'));
 		$autoloader->addDirectory(__DIR__.DIRECTORY_SEPARATOR.'classes');
 		$autoloader->addDirectory($this->classesDir);
+		return $autoloader;
 	}
 	
 	private function loadConfig() {
