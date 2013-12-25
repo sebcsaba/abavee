@@ -34,14 +34,23 @@ class Autoloader {
 	private $directoryQueue;
 	
 	/**
+	 * If true, a ClassNotFoundError can be thrown if the requested class is not found.
+	 * If false, no exception is thrown, just a false value is returned.
+	 * @var boolean
+	 */
+	private $throw;
+	
+	/**
 	 * Creates the classloader.
 	 *
 	 * @param string $cacheFileName The cache will be stored in this file
+	 * @param boolean $throw If true, a ClassNotFoundError can be thrown
 	 */
-	public function __construct($cacheFileName) {
+	public function __construct($cacheFileName, $throw = true) {
 		$this->cacheFileName = $cacheFileName;
 		$this->classes = $this->loadCache();
 		$this->directoryQueue = array();
+		$this->throw = $throw;
 	}
 	
 	/**
@@ -85,16 +94,16 @@ class Autoloader {
 	 * requested class is found, loads that file. Finally, if there was change in
 	 * the $classes, then saves that to file.
 	 * 
-	 *
 	 * @param string $className The name of the class to load.
-	 * @throws ClassNotFoundException If the specified class was not found
+	 * @throws ClassNotFoundException If the specified class was not found and throw=true
+	 * @return boolean True if the class was loaded, false (or exception) othrerwise 
 	 */
 	public function load($className) {
 		if (array_key_exists($className,$this->classes)) {
 			$file = $this->classes[$className];
 			if (is_readable($file)) {
 				require_once($file);
-				return;
+				return true;
 			}
 		}
 		$found = false;
@@ -120,9 +129,13 @@ class Autoloader {
 		if ($modified) $this->writeCache();
 		if ($found) {
 			require_once($this->classes[$className]);
-			return;
+			return true;
 		} else {
-			throw new ClassNotFoundException($className);
+			if ($this->throw) {
+				throw new ClassNotFoundException($className);
+			} else {
+				return false;
+			}
 		}
 	}
 	
