@@ -162,4 +162,14 @@ class Timestamp {
 		return new Timestamp($this->seconds + $seconds);
 	}
 	
+	/**
+	 * Returns a new timestamps that is later than this by the given amount of days.
+	 *
+	 * @param integer $days
+	 * @return Timestamp
+	 */
+	public function addDays($days=1) {
+		return new Timestamp($this->seconds + $days * 86400);
+	}
+	
 }
