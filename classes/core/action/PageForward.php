@@ -19,10 +19,10 @@ class PageForward implements Forward {
 	}
 	
 	public function run(DI $di, Config $config, Request $request) {
-		if ($config->get('language/use')) {
+		if ($config->get('language/enabled', false)) {
 			$t = $di->get('TranslationHandler')->getTranslationFunction();
 		} else {
-			$t = function() { return 'No translations are supported. Set the "language/use" configuration value!'; };
+			$t = function() { return 'No translations are supported. Set the "language/enabled" configuration value!'; };
 		}
 		require_once('pages/'.$this->page.'.tpl.php');
 		return null;
